@@ -5,15 +5,18 @@ import ClientesPage from './pages/ClientesPage'
 import ExpedientesPage from './pages/ExpedientesPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import RequireAuth from './components/RequireAuth'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<MainLayout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/clientes" element={<ClientesPage />} />
-        <Route path="/expedientes" element={<ExpedientesPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/clientes" element={<ClientesPage />} />
+          <Route path="/expedientes" element={<ExpedientesPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
