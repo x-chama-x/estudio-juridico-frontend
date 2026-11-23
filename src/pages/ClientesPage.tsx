@@ -1,12 +1,30 @@
 import { useEffect, useState } from 'react'
-import { Alert, Input, Select, Space, Table, Tag, Typography, type TableColumnsType } from 'antd'
-import { listarClientes } from '../services/clientesService'
+import {
+  Alert,
+  Button,
+  Input,
+  message,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  type TableColumnsType,
+} from 'antd'
+import { cambiarEstadoCliente, listarClientes } from '../services/clientesService'
 import type { Cliente, TipoCliente } from '../types/cliente'
 import { documentoCliente, nombreCliente } from '../utils/clientes'
+import { mensajeDeError } from '../utils/errores'
+import { useAuth } from '../context/AuthContext'
+import ClienteFormModal from '../components/ClienteFormModal'
 
 const LIMITE = 10
 
 function ClientesPage() {
+  const { usuario } = useAuth()
+  const esAbogado = usuario?.rol === 'abogado'
+
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
@@ -14,6 +32,10 @@ function ClientesPage() {
   const [tipo, setTipo] = useState<TipoCliente | undefined>(undefined)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null)
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     let ignorar = false
@@ -36,7 +58,33 @@ function ClientesPage() {
     return () => {
       ignorar = true
     }
-  }, [busqueda, tipo, pagina])
+  }, [busqueda, tipo, pagina, recarga])
+
+  function abrirNuevo() {
+    setClienteEditando(null)
+    setModalAbierto(true)
+  }
+
+  function abrirEdicion(cliente: Cliente) {
+    setClienteEditando(cliente)
+    setModalAbierto(true)
+  }
+
+  function alGuardar() {
+    setModalAbierto(false)
+    message.success(clienteEditando ? 'Cliente actualizado' : 'Cliente creado')
+    setRecarga((r) => r + 1)
+  }
+
+  async function darDeBaja(cliente: Cliente) {
+    try {
+      await cambiarEstadoCliente(cliente._id, false)
+      message.success('Cliente dado de baja')
+      setRecarga((r) => r + 1)
+    } catch (err) {
+      message.error(mensajeDeError(err))
+    }
+  }
 
   const columnas: TableColumnsType<Cliente> = [
     {
@@ -68,6 +116,30 @@ function ClientesPage() {
       key: 'email',
       render: (valor?: string) => valor || '—',
     },
+    {
+      title: 'Acciones',
+      key: 'acciones',
+      render: (_, cliente) => (
+        <Space>
+          <Button size="small" onClick={() => abrirEdicion(cliente)}>
+            Editar
+          </Button>
+          {esAbogado && (
+            <Popconfirm
+              title="¿Dar de baja este cliente?"
+              description="Dejará de aparecer en el listado."
+              okText="Dar de baja"
+              cancelText="Cancelar"
+              onConfirm={() => darDeBaja(cliente)}
+            >
+              <Button size="small" danger>
+                Dar de baja
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ]
 
   return (
@@ -98,6 +170,9 @@ function ClientesPage() {
             { value: 'juridica', label: 'Persona jurídica' },
           ]}
         />
+        <Button type="primary" onClick={abrirNuevo}>
+          Nuevo cliente
+        </Button>
       </Space>
 
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
@@ -115,6 +190,13 @@ function ClientesPage() {
           onChange: setPagina,
           showSizeChanger: false,
         }}
+      />
+
+      <ClienteFormModal
+        abierto={modalAbierto}
+        cliente={clienteEditando}
+        onCerrar={() => setModalAbierto(false)}
+        onGuardado={alGuardar}
       />
     </>
   )
